@@ -1,9 +1,4 @@
 import sys
-import os
-
-# 현재 파일의 경로를 기준으로 상위 디렉토리 추가
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from metal_hud_parse.metal_hud_parse import run_performance_analysis, get_csv_data
 
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QApplication, QWidget, QMainWindow, QSpacerItem, QSizePolicy
@@ -23,13 +18,22 @@ class MetalHudParse(QWidget):
             "height": 700,
         }
         
+        # 여러개의 시스템 변수를 딕셔너리로 관리합니다.
+        self.set_data = {
+            "file_name": None
+        }
+        
         self.init_ui()
         self.center()
         
+        self.main_layout = QVBoxLayout()
+        
         # 초기 화면
-        welcome_screen = WelcomeScreen()
-        self.setLayout(welcome_screen.setup_ui())
+        welcome_screen = WelcomeScreen(self)
+        self.main_layout.addWidget(welcome_screen.setup_ui())
 
+        self.setLayout(self.main_layout)
+        
     def init_ui(self):
         self.resize(self.set_display["width"], self.set_display["height"])
         self.setWindowTitle("Main Window in PyQt")
