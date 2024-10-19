@@ -1,6 +1,6 @@
-from performance_metrics_analysis import *
-from performance_metrics_condition import *
-from get_csv_data import *
+from .performance_metrics_analysis import *
+from .performance_metrics_condition import *
+from .get_csv_data import *
 import numpy as np
 
 
@@ -22,13 +22,14 @@ def run_performance_analysis(hud_raw_data:dict, decimal_places:int) -> dict:
     return _get_calculate_conditions, _get_data, _get_error_data
     
 
-data = get_csv_data("output1.csv")
-_get_calculate_conditions, _get_data, _get_error_data = run_performance_analysis(data, 2)
+if __name__ == "__main__":
+    data = get_csv_data("output1.csv")
+    _get_calculate_conditions, _get_data, _get_error_data = run_performance_analysis(data, 2)
 
-print(_get_calculate_conditions["benchmarkBasedTime"])
-print(np.mean(_get_data["frameTimeData"]))
-print(np.mean(_get_data["gpuTimeData"]))
-print(np.mean(_get_data["memoryData"]))
-print(_get_error_data["frametimeErrorData"])
-print(_get_error_data["gpuTimeErrorData"])
+    print(_get_calculate_conditions["benchmarkBasedTime"])
+    print(np.mean(_get_data["frameTimeData"]))
+    print(np.mean(_get_data["gpuTimeData"]))
+    print(np.mean(_get_data["memoryData"]))
+    print(_get_error_data["frametimeErrorData"])
+    print(_get_error_data["gpuTimeErrorData"])
 
