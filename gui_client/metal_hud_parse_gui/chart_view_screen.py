@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QFrame
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy
 from PyQt6.QtWidgets import QLabel, QPushButton
 from PyQt6.QtWidgets import QWidget, QFileDialog
-from PyQt6.QtCore import Qt, QThread
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -69,6 +69,8 @@ class ChartViewScreen(QWidget):
         super(ChartViewScreen, self).__init__(parent)
         
         self.chart_view_screen_style = ChartViewScreenStyle()
+        self.parent = parent
+        self.set_data = self.parent.set_data
     
     def setup_view_ui(self):
         """UI 구성 요소를 설정합니다."""
@@ -133,10 +135,9 @@ class ChartViewScreen(QWidget):
         return self.chart_view_frame
 
         # 차트에 데이터를 표시합니다
-    def plot_data_on_chart(self, file_name: str):
-        if file_name is not None:
-            data = get_csv_data(file_name)
-            
+    def update_chart(self):
+        if self.set_data["file_name"] is not None:
+            data = get_csv_data(self.set_data["file_name"])
             _get_calculate_conditions, _get_data, _get_error_data = run_performance_analysis(data, 2)
             
             fps_data = np.array(_get_data["frameTimeData"])
@@ -165,32 +166,40 @@ class ChartViewScreen(QWidget):
             max_fps = np.max(fps_data)  # 최대 FPS 값에 따른 y축 범위 설정
             self.ax.set_ylim(0, max_fps)
             self.ax.yaxis.set_ticks(np.arange(0, max_fps * 2, 20))  # y축 눈금 설정
-
-            # 마우스 이벤트 연결
-            self.figure.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
-
+            
             # Canvas 업데이트
             self.canvas.draw()
             
             # 레이블 업데이트
             self.total_time_and_avg_fps_label.setText(f"Total testing time: {fps_data_length // 60}m {fps_data_length % 60}s / AVG FPS: {avg_fps:.2f}")
 
-            # 수직선 초기화
-            self.vline = self.ax.axvline(x=0, color='red', linestyle='-')  # 초기 수직선 설정
+    def vline_event(self):
+        # 수직선 초기화
+        self.vline = self.ax.axvline(x=0, color='red', linestyle='-')  # 초기 수직선 설정
+
+        # 마우스 이벤트 연결
+        self.figure.canvas.mpl_connect('motion_notify_event', self.on_mouse_move)
+
 
     def on_mouse_move(self, event):
         if event.inaxes is not None:  # 마우스 포인터가 Axes 안에 있는지 확인
-            # x 좌표에 해당하는 인덱스 찾기
+            # x 좌표에 해당하는 인덱스를 찾기
             x_data = self.line.get_xdata()
             y_data = self.line.get_ydata()
-            
-            # 마우스 x 좌표에 가장 가까운 데이터 포인트 찾기
-            closest_index = np.argmin(np.abs(x_data - event.xdata))
-            
+
+            # 마우스 x 좌표에 가장 가까운 데이터 포인트 찾기 (최적화)
+            closest_index = np.searchsorted(x_data, event.xdata)  # 이진 탐색을 사용하여 인덱스 찾기
+
+            # 경계 조건 체크
+            if closest_index == len(x_data):  # 인덱스가 x_data의 크기와 같으면
+                closest_index = len(x_data) - 1  # 마지막 인덱스 사용
+            elif closest_index > 0 and np.abs(event.xdata - x_data[closest_index - 1]) < np.abs(event.xdata - x_data[closest_index]):
+                closest_index -= 1  # 왼쪽 인덱스가 더 가까운 경우
+
             # 해당 포인트의 x, y 값
             closest_x = x_data[closest_index]
             closest_y = y_data[closest_index]
-            
+
             # 마우스 포인터가 선 위에 있을 때만 출력
             if np.abs(event.xdata - closest_x) < 0.1:  # 허용 오차 설정
                 # x축을 분과 초로 변환
@@ -204,4 +213,18 @@ class ChartViewScreen(QWidget):
                 self.vline.set_xdata([closest_x, closest_x])  # x 데이터를 리스트로 설정
 
             # Canvas 업데이트
-            self.canvas.draw()
+            self.canvas.draw_idle()  # UI 업데이트 최적화
+
+
+# 차트 뷰 스레드를 생성합니다.
+class ChartViewThread(QThread):
+    update_chart = pyqtSignal()
+    vline_event = pyqtSignal()
+    
+    def __init__(self, parent=None):
+        super(ChartViewThread, self).__init__(parent)
+    
+    def start(self):
+        self.update_chart.emit()
+        self.vline_event.emit()
+        

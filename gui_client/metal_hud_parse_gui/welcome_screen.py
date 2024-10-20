@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QLabel, QPushButton
 from PyQt6.QtWidgets import QWidget, QFileDialog
 from PyQt6.QtCore import Qt, QTimer
 
-from chart_view_screen import ChartViewScreen
+from chart_view_screen import ChartViewScreen, ChartViewThread
 
 class WelcomeScreenStyle():
     def __init__(self) -> None:
@@ -51,7 +51,7 @@ class WelcomeScreen(QWidget):
         # 스타일 객체를 생성합니다.
         self.welcome_screen_style = WelcomeScreenStyle()
         # 차트 뷰 객체를 생성합니다.
-        self.chart_view_screen = ChartViewScreen()
+        self.chart_view_screen = ChartViewScreen(self.parent)
         
     def setup_ui(self):
         """UI 구성 요소를 설정합니다."""
@@ -113,7 +113,8 @@ class WelcomeScreen(QWidget):
                 # 2초간 비동기 대기 후 main_frame 를 삭제합니다.
                 QTimer.singleShot(2000, self.welcome_frame.deleteLater)
                 QTimer.singleShot(2000, lambda: self.main_layout.addWidget(self.chart_view_screen.setup_view_ui()))
-                QTimer.singleShot(3000, lambda: self.chart_view_screen.plot_data_on_chart(self.set_data["file_name"]))
+                QTimer.singleShot(3000, self.start_chart_view_thread)
+                
                 
             else:
                 print(f"파일 포맷이 *.csv 가 아닙니다.")
@@ -121,3 +122,9 @@ class WelcomeScreen(QWidget):
                 # welcome_label 텍스트를 변경합니다
                 self.welcome_label.setText("파일 포맷이 *.csv 가 아닙니다.")
                 self.set_data["file_name"] = None
+
+    def start_chart_view_thread(self):
+        chart_view_thread = ChartViewThread()
+        chart_view_thread.update_chart.connect(self.chart_view_screen.update_chart)  # 데이터 로드 후 차트 업데이트
+        chart_view_thread.vline_event.connect(self.chart_view_screen.vline_event)
+        chart_view_thread.start()  # 스레드 시작
